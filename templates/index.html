@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>S&P 500 ARIMA Forecast</title>
+</head>
+<body>
+    <h1>S&P 500 ARIMA Forecast</h1>
+    <form method="POST">
+        <label for="train_window">Training Window (days):</label>
+        <input type="number" name="train_window" required>
+        <label for="pred_window">Prediction Window (days):</label>
+        <input type="number" name="pred_window" required>
+        <button type="submit">Predict</button>
+    </form>
+    {% if forecast is not none and forecast|length > 0 %}
+        <h2>Forecast:</h2>
+        <img src="data:image/png;base64,{{ plot_url }}" alt="Forecast Plot">
+    {% endif %}
+</body>
+</html>

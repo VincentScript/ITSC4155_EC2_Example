@@ -1,0 +1,6 @@
+Flask
+pandas
+requests
+matplotlib
+python-dotenv
+statsmodels
