@@ -9,6 +9,8 @@ import base64
 import os
 from dotenv import load_dotenv
 from statsmodels.tsa.arima.model import ARIMA
+import numpy as np
+
 
 # Load environment variables
 load_dotenv()
@@ -39,7 +41,7 @@ def fetch_lstm_forecast():
         "apikey": ALPHA_VANTAGE_API_KEY # type: ignore
     }
 
-    response = requests.get(url, params, params=params).json()
+    response = requests.get(url, params=params).json()
 
     if "forecasts" not in response: 
         return None
@@ -66,7 +68,7 @@ def index():
         if df is None:
             return "Error fetching S&P 500 data. Try again later."
         
-        df_lstm = fetch_lstm_forecast
+        df_lstm = fetch_lstm_forecast()
         
         # Select training data
         train_data = df["Close"].iloc[-train_window:]
