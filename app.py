@@ -36,7 +36,7 @@ def fetch_lstm_forecast():
     params = {
         "function": "TIME_SERIES_INTRADAY_FORECAST",
         "symbol": "SPY",
-        "apikey": ALPHA_VANTAGE_API_KEY # type: ignore
+        "apikey": API_KEY # type: ignore
     }
 
     response = requests.get(url, params, params=params).json()
@@ -67,6 +67,8 @@ def index():
             return "Error fetching S&P 500 data. Try again later."
         
         df_lstm = fetch_lstm_forecast
+        if df_lstm is None:
+            return "Error fetch LSTM data. Try again later."
         
         # Select training data
         train_data = df["Close"].iloc[-train_window:]
@@ -77,6 +79,8 @@ def index():
 
         # Forecast
         forecast_arima = model_fit.forecast(steps=pred_window)
+
+        forecast_lstm = model_fit.forecast(steps=pred_window)
 
         # Generate plot
         plt.figure(figsize=(10, 5))
