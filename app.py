@@ -9,7 +9,7 @@ import base64
 import os
 from dotenv import load_dotenv
 from statsmodels.tsa.arima.model import ARIMA
-import numpy as np
+
 
 
 # Load environment variables
@@ -25,14 +25,14 @@ def fetch_sp500_data():
     response = requests.get(url).json()
     
     if "Time Series (Daily)" not in response:
-        return None
+        return pd.DataFrame() # Return an empty DataFrame to prevent errors
     
     df = pd.DataFrame.from_dict(response["Time Series (Daily)"], orient="index")
     df = df.rename(columns={"4. close": "Close"}).astype(float)
     df.index = pd.to_datetime(df.index)
     df = df.sort_index()  # Ensure data is sorted by date
     return df[["Close"]]
-
+#below is the fuction to fetch LSTM forecast data
 def fetch_lstm_forecast():
     url=f"https://www.alphavantage.co/query"
     params = {
@@ -44,15 +44,14 @@ def fetch_lstm_forecast():
     response = requests.get(url, params=params).json()
 
     if "forecasts" not in response: 
-        return None
+        return pd.DataFrame() #Return empty DataFrame instead of None
     
-    forecast_data = response["forecasts"]
-    df_forecast = pd.DataFrame(forecast_data)
-
+    df_forecast = pd.DataFrame(response["forecasts"])
     df_forecast["timestamp"] = pd.to_datetime(df_forecast["timestamp"])
-    df_forecast.set_index ("timestamp", inplace=True)
-
+    df_forecast.set_index("timestamp", inplace=True)
     return df_forecast
+
+   
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -65,11 +64,14 @@ def index():
         pred_window = int(request.form["pred_window"])
         
         df = fetch_sp500_data()
-        if df is None:
-            return "Error fetching S&P 500 data. Try again later."
+        if df.empty:
+            return "Error fetching 500 S&P data. Try again later."
+
         
-        df_lstm = fetch_lstm_forecast
-        
+        df_lstm = fetch_lstm_forecast()
+        if df_lstm.empty:
+            print("Warning: LSTM forecast data is empty, skipping LSTM predictions.")
+
         # Select training data
         train_data = df["Close"].iloc[-train_window:]
 
@@ -77,25 +79,26 @@ def index():
         model = ARIMA(train_data, order=(5, 1, 0))  # Adjust p, d, q as needed
         model_fit = model.fit()
 
-        # Forecast
+        # Forecast using ARIMA
         forecast_arima = model_fit.forecast(steps=pred_window)
-
-        forecast_lstm = model_fit.forecast(steps=pred_window)
 
         # Generate plot
         plt.figure(figsize=(10, 5))
         plt.plot(df.index[-train_window:], train_data, label="Training Data", color="blue")
-        forecast_index = pd.date_range(df.index[-1], periods=pred_window + 1, freq="D")[1:]
-        plt.plot(forecast_index, forecast_arima, label="Forecast", linestyle="dashed", color="red")
 
-        if df_lstm is not None:
-            forecast_lstm = df_lstm["forecast"].iloc[:pred_window]
-            plt.plot(df_lstm.index[:pred_window], forecast_lstm, label="LSTM Forecast", linestyle="dotted", color="green")
+        # Generate ARIMA forecast plot
+        forecast_index = pd.date_range(df.index[-1], periods=pred_window + 1, freq="D")[1:]
+        plt.plot(forecast_index, forecast_arima, label="ARIMA Forecast", linestyle="dashed", color="red")
+
+        # Only plot LSTM if data is available
+        if not df_lstm.empty and "forecast" in df_lstm.columns:
+            plt.plot(df_lstm.index[:pred_window], df_lstm["forecast"].iloc[:pred_window], 
+                     label="LSTM Forecast", linestyle="dotted", color="green")
 
         plt.xlabel("Date")
         plt.ylabel("S&P 500 Price")
         plt.legend()
-        plt.title("S&P 500 ARIMA Forecast: ARIMA vs LSTM")
+        plt.title("S&P 500 ARIMA vs LSTM Forecast")
 
         # Convert plot to base64 image
         img = io.BytesIO()
@@ -108,3 +111,4 @@ def index():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
+    
